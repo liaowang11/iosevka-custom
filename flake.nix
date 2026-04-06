@@ -8,7 +8,7 @@
     ];
   };
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/36a601196c4ebf49e035270e10b2d103fe39076b";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
   outputs =
     { self, nixpkgs }:
