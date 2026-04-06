@@ -16,6 +16,8 @@ The workflow in `.github/workflows/build.yml` builds:
 
 Pull requests build without pushing to Cachix. Pushes to `main` and manual runs push successful builds to `iosevka-wliao`.
 
+The scheduled workflow in `.github/workflows/update-nixpkgs.yml` runs every Friday at `03:00 UTC`, updates the `nixpkgs` lock entry, commits `flake.lock` when it changes, and rebuilds the package on both supported systems.
+
 ## Required Secret
 
 Add this repository secret before enabling cache pushes:

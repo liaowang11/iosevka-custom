@@ -62,6 +62,9 @@
           default =
             assert self.packages.${system}.default.pname == "IosevkaCustom";
             pkgs.runCommand "iosevka-custom-eval-check" { } "touch $out";
+          update-workflow =
+            assert import ./tests/update-workflow.nix;
+            pkgs.runCommand "iosevka-custom-update-workflow-check" { } "touch $out";
         }
       );
     };
