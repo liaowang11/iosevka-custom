@@ -9,18 +9,10 @@ on:
 
 jobs:
   package:
-    name: ${{ matrix.system }}
-    runs-on: ${{ matrix.runner }}
+    name: x86_64-linux
+    runs-on: ubuntu-24.04
     permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            system: aarch64-darwin
-          - runner: ubuntu-24.04
-            system: x86_64-linux
+      contents: write
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
       - uses: cachix/install-nix-action@96951a368ba55167b55f1c916f7d416bac6505fe
@@ -31,5 +23,25 @@ jobs:
           name: iosevka-wliao
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: ${{ github.event_name == 'pull_request' }}
-      - run: nix flake check --print-build-logs --system ${{ matrix.system }}
-      - run: nix build --print-build-logs .#packages.${{ matrix.system }}.default
+      - run: nix flake check --print-build-logs --system x86_64-linux
+      - run: nix build --print-build-logs .#packages.x86_64-linux.default
+      - name: Package release asset
+        run: |
+          version=$(nix eval --raw .#packages.x86_64-linux.default.version)
+          mkdir -p release
+          cp result/share/fonts/truetype/* release/
+          (cd release && zip -r "../iosevka-custom-ttf-${version}.zip" .)
+          echo "version=${version}" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iosevka-custom-ttf-${{ env.version }}
+          path: iosevka-custom-ttf-${{ env.version }}.zip
+      - name: Publish GitHub release
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${version}"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "$tag" --notes "Automated release for Iosevka Custom ${version}."
+          gh release upload "$tag" iosevka-custom-ttf-${version}.zip --repo "$GITHUB_REPOSITORY" --clobber
