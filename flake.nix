@@ -14,16 +14,22 @@
     { self, nixpkgs }:
     let
       lib = nixpkgs.lib;
-      supportedSystems = [
+      allSystems = lib.platforms.all;
+      sourceSystems = [
         "aarch64-darwin"
         "x86_64-linux"
       ];
-      forAllSystems = lib.genAttrs supportedSystems;
+      forAllSystems = lib.genAttrs allSystems;
+      forSourceSystems = lib.genAttrs sourceSystems;
+      version = "34.4.0";
+      variantHashes = import ./variants.nix;
+
+      mkPkgs = system: import nixpkgs { inherit system; };
 
       mkIosevkaCustom =
         system:
         let
-          pkgs = import nixpkgs { inherit system; };
+          pkgs = mkPkgs system;
         in
         pkgs.iosevka.override {
           privateBuildPlan = {
@@ -46,14 +52,26 @@
           };
           set = "Custom";
         };
+
+      mkIosevkaCustomBin =
+        system:
+        let
+          pkgs = mkPkgs system;
+        in
+        pkgs.callPackage ./iosevka-custom-bin.nix {
+          inherit variantHashes version;
+        };
     in
     {
       packages = forAllSystems (system: {
+        iosevka-custom-bin = mkIosevkaCustomBin system;
+      }) // forSourceSystems (system: {
         default = mkIosevkaCustom system;
         iosevka-custom = mkIosevkaCustom system;
+        iosevka-custom-bin = mkIosevkaCustomBin system;
       });
 
-      checks = forAllSystems (
+      checks = forSourceSystems (
         system:
         let
           pkgs = import nixpkgs { inherit system; };
