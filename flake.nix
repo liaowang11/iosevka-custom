@@ -21,7 +21,6 @@
       ];
       forAllSystems = lib.genAttrs allSystems;
       forSourceSystems = lib.genAttrs sourceSystems;
-      version = "34.4.0";
       variantHashes = import ./variants.nix;
 
       mkPkgs = system: import nixpkgs { inherit system; };
@@ -59,7 +58,8 @@
           pkgs = mkPkgs system;
         in
         pkgs.callPackage ./iosevka-custom-bin.nix {
-          inherit variantHashes version;
+          inherit variantHashes;
+          version = pkgs.iosevka.version;
         };
     in
     {

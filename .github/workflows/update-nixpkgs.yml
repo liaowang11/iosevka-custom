@@ -55,17 +55,35 @@ jobs:
           version=$(nix eval --raw .#packages.x86_64-linux.default.version)
           mkdir -p release
           cp result/share/fonts/truetype/* release/
-          (cd release && zip -r "../iosevka-custom-ttf-${version}.zip" .)
+          # Build a reproducible zip: normalize mtimes and file order, strip
+          # extra metadata, so identical fonts always produce identical bytes.
+          find release -exec touch -t 198001010000 {} +
+          (cd release && find . -type f | sort | zip -X -D "../iosevka-custom-ttf-${version}.zip" -@)
           echo "version=${version}" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
           name: iosevka-custom-ttf-${{ env.version }}
           path: iosevka-custom-ttf-${{ env.version }}.zip
       - name: Publish GitHub release
+        id: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="v${version}"
-          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; skipping publish (no new upstream version)."
+          else
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "$tag" --notes "Automated release for Iosevka Custom ${version}."
-          gh release upload "$tag" iosevka-custom-ttf-${version}.zip --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$tag" "iosevka-custom-ttf-${version}.zip" --repo "$GITHUB_REPOSITORY"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pin release asset hash
+        if: steps.publish.outputs.published == 'true'
+        run: |
+          sri=$(nix hash file "iosevka-custom-ttf-${version}.zip")
+          sed -i "s|Custom = \"[^\"]*\";|Custom = \"${sri}\";|" variants.nix
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add variants.nix
+          git commit -m "Update hash for v${version} release asset"
+          git push origin HEAD:main
